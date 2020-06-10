@@ -55,7 +55,7 @@ jmsserver = create('myJMSServer', 'JMSServer')
 
 fstore = create('myFileStore','FileStore')
 cd('/FileStore/myFileStore')
-set('Directory','/Users/tduong/tmp')
+set('Directory','/home/tduong/tmp')
 
 jmsserver.setPersistentStore(fstore)
 
@@ -94,7 +94,7 @@ assign('JMSSystemResource.SubDeployment', 'myJMSSystemResource.myTopicSubDeploym
 #=======================================================================================
 
 setOption('OverwriteDomain', 'true')
-writeDomain('/home/tduong/cots/weblogic/12.2.1.4/wlserver/../user_projects/domains/basicWLSDomain')
+writeDomain('/home/tduong/weblogic/domains/tduong_7010')
 closeTemplate()
 
 #=======================================================================================
