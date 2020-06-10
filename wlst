@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export WL_HOME=/Users/tduong/oracle/wls12214
+export WL_HOME=/home/tduong/cots/weblogic/12.2.1.4
 source $WL_HOME/wlserver/server/bin/setWLSEnv.sh
 
 java weblogic.WLST *

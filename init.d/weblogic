@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# WebLogic Startup script
+#
+# chkconfig: - 75 15
+# description: weblogic
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+# Start user-defined environment
+DOMAIN_HOME=/home/tduong/cots/weblogic/12.2.1.4/user_projects/domains/basicWLSDomain
+MW_HOME=/home/tduong/cots/weblogic/12.2.1.4
+JAVA_HOME=/home/tduong/cots/jdk/1.8.0_251
+# End user-defined environment
+
+declare -A USER_PORT_MAP=( ["tduong"]="7010" )
+ 
+
+get_domain_home() {
+	WL_USER=$1
+	WL_PORT=$2
+	local domain_home="/home/$WL_USER/weblogic/domains/wl_$WL_USER_$WL_PORT"
+	echo "$domain_home"
+}
+
+wl_start() {
+	
+	WL_USER=$1
+	WL_PORT=$2
+
+	DOMAIN_HOME=`get_domain_home $WL_USER $WL_PORT`
+
+	echo -n $"Starting Weblogic Admin Server for $WL_USER on port $WL_PORT..."
+	#su - $WL_USER -c "$DOMAIN_HOME/bin/startWebLogic.sh > wl_start.log 2>&1 &"
+	echo OK
+}
+
+wl_stop() {
+
+	WL_USER=$1
+	WL_PORT=$2
+
+	DOMAIN_HOME=`get_domain_home $WL_USER $WL_PORT`
+
+	echo -n $"Stopping Weblogic Admin Server for $WL_USER on port $WL_PORT..."
+	#su - $WL_USER -c "$DOMAIN_HOME/bin/stopWebLogic.sh > wl_stop.log 2>&1 &"
+	echo OK
+}
+
+wl_restart() {
+
+	WL_USER=$1
+	WL_PORT=$2
+	
+	echo -n $"Restart Weblogic Admin Server for $WL_USER on port $WL_PORT..."
+	wl_stop $WL_USER $WL_PORT
+	wl_start $WL_USER $WL_PORT
+	echo OK
+}
+
+case "$1" in
+	start)
+		for usr in "${!USER_PORT_MAP[@]}"; do
+			wl_start $usr ${USER_PORT_MAP[$usr]}
+		done
+		;;
+	stop)
+		wl_stop
+		;;
+	restart)
+		wl_restart
+		;;
+	*)
+		echo $"Usage: $0 start | stop | restart"
+		exit 1
+esac
+
+exit 0

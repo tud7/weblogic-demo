@@ -15,7 +15,7 @@
 # Open a domain template.
 #=======================================================================================
 
-readTemplate("/Users/tduong/oracle/wls12214/wlserver/common/templates/wls/wls.jar")
+readTemplate("/home/tduong/cots/weblogic/12.2.1.4/wlserver/common/templates/wls/wls.jar")
 #selectTemplate('Base WebLogic Server Domain')
 #loadTemplates()
 
@@ -94,7 +94,7 @@ assign('JMSSystemResource.SubDeployment', 'myJMSSystemResource.myTopicSubDeploym
 #=======================================================================================
 
 setOption('OverwriteDomain', 'true')
-writeDomain('/Users/tduong/oracle/wls12214/wlserver/../user_projects/domains/basicWLSDomain')
+writeDomain('/home/tduong/cots/weblogic/12.2.1.4/wlserver/../user_projects/domains/basicWLSDomain')
 closeTemplate()
 
 #=======================================================================================
