@@ -17,19 +17,20 @@ JAVA_HOME=/home/tduong/cots/jdk/1.8.0_251
 SERVICE_NAME=`/bin/basename $0`
 
 declare -A USER_PORT_MAP=( ["tduong"]="7010" ["tester"]="7020")
- 
+declare -A START_LOG_MAP 
 
 get_domain_home() {
+
 	WL_USER=$1
 	WL_PORT=$2
 	local domain_home="/home/$WL_USER/weblogic/domains/${WL_USER}_${WL_PORT}"
 	echo "$domain_home"
 }
 
-wait_for() {
+scan_log_file() {
 
 	LOG_FILE=$1
-	SEARCH_STRING=$2
+	SEARCH_STRING="<Server state changed to RUNNING.>"
 	
 	res=$(cat "$LOG_FILE" | fgrep -c "$SEARCH_STRING")
 	
@@ -70,16 +71,18 @@ wl_start() {
 	echo -n $"Starting Weblogic Admin Server for '$WL_USER' on port '$WL_PORT'... "
 	
 	NOW=$(date +"%Y_%m_%d_%H_%M_%S")
-	LOGFILE="/tmp/wl_start_$NOW.log"
+	LOGFILE="/tmp/wlstart_${WL_USER}_${WL_PORT}_$NOW.log"
 	
 	su - $WL_USER -c "$STARTWL_CMD > $LOGFILE 2>&1 &"
 	
 	RETVAL=$?
-        if [ $RETVAL -eq 0 ] ; then
-          wait_for $LOGFILE "<Server state changed to RUNNING.>"
+	if [ $RETVAL -eq 0 ] ; then
+	 	START_LOG_MAP["${WL_USER}_${WL_PORT}"]=$LOGFILE
+	 	echo
         else
-          echo "FAILED"
-        fi
+        	START_LOG_MAP["${WL_USER}_${WL_PORT}"]=""
+        	echo "ERROR"
+        fi        	
 }
 
 wl_stop() {
@@ -130,7 +133,7 @@ wl_status() {
         	echo "WebLogic for '$WL_USER' on port '$WL_PORT': stopped"
         fi
 }
-
+     
 
 case "$1" in
 	start)
@@ -138,6 +141,18 @@ case "$1" in
 			port=${USER_PORT_MAP[$usr]}
 			wl_start $usr $port
 		done
+		
+		echo "Checking status of launched WebLogic Admin Servers, please wait..."
+		for key in "${!START_LOG_MAP[@]}"; do
+			logfile=${START_LOG_MAP[$key]}
+			if [ -z "$logfile" ]; then
+				echo "-- $key: FAILED"
+			else
+				res=`scan_log_file $logfile`
+				echo "-- $key: $res"
+			fi
+		done
+		
 		;;
 	stop)
 		for usr in "${!USER_PORT_MAP[@]}"; do
