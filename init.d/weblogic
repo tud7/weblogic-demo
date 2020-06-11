@@ -14,7 +14,9 @@ MW_HOME=/home/tduong/cots/weblogic/12.2.1.4
 JAVA_HOME=/home/tduong/cots/jdk/1.8.0_251
 # End user-defined environment
 
-declare -A USER_PORT_MAP=( ["tduong"]="7010" )
+SERVICE_NAME=`/bin/basename $0`
+
+declare -A USER_PORT_MAP=( ["tduong"]="7010" ["tester"]="7020")
  
 
 get_domain_home() {
@@ -24,16 +26,60 @@ get_domain_home() {
 	echo "$domain_home"
 }
 
+wait_for() {
+
+	LOG_FILE=$1
+	SEARCH_STRING=$2
+	
+	res=$(cat "$LOG_FILE" | fgrep -c "$SEARCH_STRING")
+	
+	count=600 # 10 mins
+	
+	while [[ ! $res -gt 0 ]] && [[ $count -gt 0 ]]
+	do
+		sleep 1
+		count=$(($count - 1))
+		res=$(cat "$LOG_FILE" | fgrep -c "$SEARCH_STRING")
+	done
+	
+	res=$(cat "$LOG_FILE" | fgrep -c "$SEARCH_STRING")
+	if [ ! $res -gt 0 ]; then
+		echo "FAILED or took too long time to start. Please check $LOG_FILE for more information."
+	else
+		echo "OK"
+    	fi
+}
+
 wl_start() {
 	
 	WL_USER=$1
 	WL_PORT=$2
 
 	DOMAIN_HOME=`get_domain_home $WL_USER $WL_PORT`
+	
+	STARTWL_CMD="$DOMAIN_HOME/bin/startWebLogic.sh"
+	
+	# Check if weblogic is already running
+	OLD_PID=`/usr/bin/pgrep -f $STARTWL_CMD`
+	if [ ! -z "$OLD_PID" ]; then
+		echo "WebLogic is already running for '$WL_USER' on port '$WL_PORT' (pid=$OLD_PID)!"
+		echo
+		exit
+        fi
 
-	echo -n $"Starting Weblogic Admin Server for $WL_USER on port $WL_PORT..."
-	su - $WL_USER -c "$DOMAIN_HOME/bin/startWebLogic.sh > /tmp/wl_start.log 2>&1 &"
-	echo OK
+	echo -n $"Starting Weblogic Admin Server for '$WL_USER' on port '$WL_PORT'... "
+	
+	NOW=$(date +"%Y_%m_%d_%H_%M_%S")
+	LOGFILE="/tmp/wl_start_$NOW.log"
+	
+	su - $WL_USER -c "$STARTWL_CMD > $LOGFILE 2>&1 &"
+	
+	RETVAL=$?
+        if [ $RETVAL -eq 0 ] ; then
+          wait_for $LOGFILE "<Server state changed to RUNNING.>"
+        else
+          echo "FAILED"
+        fi
 }
 
 wl_stop() {
@@ -43,9 +89,19 @@ wl_stop() {
 
 	DOMAIN_HOME=`get_domain_home $WL_USER $WL_PORT`
 
-	echo -n $"Stopping Weblogic Admin Server for $WL_USER on port $WL_PORT..."
-	su - $WL_USER -c "$DOMAIN_HOME/bin/stopWebLogic.sh > /tmp/wl_stop.log 2>&1 &"
-	echo OK
+	echo -n $"Stopping Weblogic Admin Server for '$WL_USER' on port '$WL_PORT'... "
+	
+	NOW=$(date +"%Y_%m_%d_%H_%M_%S")
+	LOGFILE="/tmp/wl_stop_$NOW.log"
+	
+	su - $WL_USER -c "$DOMAIN_HOME/bin/stopWebLogic.sh > $LOGFILE 2>&1 "
+	
+	RETVAL=$?
+        if [ $RETVAL -eq 0 ] ; then
+		echo "OK"
+        else
+        	echo "FAILED"
+        fi
 }
 
 wl_restart() {
@@ -53,11 +109,28 @@ wl_restart() {
 	WL_USER=$1
 	WL_PORT=$2
 	
-	echo -n $"Restart Weblogic Admin Server for $WL_USER on port $WL_PORT..."
+	echo $"Restart Weblogic Admin Server for '$WL_USER' on port '$WL_PORT'..."
 	wl_stop $WL_USER $WL_PORT
 	wl_start $WL_USER $WL_PORT
-	echo OK
 }
+
+wl_status() {
+
+	WL_USER=$1
+	WL_PORT=$2
+
+	DOMAIN_HOME=`get_domain_home $WL_USER $WL_PORT`
+	
+	STARTWL_CMD="$DOMAIN_HOME/bin/startWebLogic.sh"
+	
+	PID=`/usr/bin/pgrep -f $STARTWL_CMD`
+	if [ ! -z "$PID" ]; then
+        	echo "WebLogic for '$WL_USER' on port '$WL_PORT': running (pid=$PID)"
+        else
+        	echo "WebLogic for '$WL_USER' on port '$WL_PORT': stopped"
+        fi
+}
+
 
 case "$1" in
 	start)
@@ -72,6 +145,12 @@ case "$1" in
 			wl_stop $usr $port
 		done
 		;;
+	status)
+		for usr in "${!USER_PORT_MAP[@]}"; do
+			port=${USER_PORT_MAP[$usr]}
+			wl_status $usr $port
+		done
+		;;
 	restart)
 		for usr in "${!USER_PORT_MAP[@]}"; do
 			port=${USER_PORT_MAP[$usr]}
@@ -79,7 +158,7 @@ case "$1" in
 		done
 		;;
 	*)
-		echo $"Usage: $0 start | stop | restart"
+		echo $"Usage: $SERVICE_NAME start | stop | restart"
 		exit 1
 esac
 
